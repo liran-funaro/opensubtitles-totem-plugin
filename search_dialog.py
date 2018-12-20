@@ -3,18 +3,27 @@ OpenSubtitles Download - Totem Plugin (see README.md)
 Search Dialog Box
 
 Created by (unknown)
-Extended by Liran Funaro <funaro@cs.technion.ac.il>
+Extended by Liran Funaro <fonaro@gmail.com>
+
+Copyright (C) 2006-2018 Liran Funaro
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from gi.repository import Peas, Gtk, Gdk
 from gi.repository import Gio, Pango, Totem
 
-from language_settings import LANGUAGES_STR_CODE, LANGUAGES_CODE_MAP
-
-import gettext
-
-gettext.textdomain("totem")
-D_ = gettext.dgettext
-_ = gettext.gettext
+from language_settings import LANGUAGES_STR_CODE, LANGUAGES_CODE_MAP, GT, DGT
 
 
 class SearchDialog(object):
@@ -30,6 +39,17 @@ class SearchDialog(object):
         """
         self.plugin_object = plugin_object
         self.totem_object = totem_object
+
+        # Future members
+        self.languages = None
+        self.language_model = None
+        self.dialog = None
+        self.progress = None
+        self.tree_view = None
+        self.list_store = None
+        self.find_button = None
+        self.apply_button = None
+        self.close_button = None
 
         # Otherwise it is a fake dialog
         if not self.is_fake:
@@ -119,7 +139,7 @@ class SearchDialog(object):
             msg = u' '
 
         try:
-            self.progress.set_text(_(msg))
+            self.progress.set_text(GT(msg))
         except:
             pass
 
@@ -215,7 +235,7 @@ class SearchDialog(object):
                    (u"Rating", False, False)]
 
         for i, (label, resize, expand) in enumerate(columns):
-            column = Gtk.TreeViewColumn(_(label), renderer, text=i)
+            column = Gtk.TreeViewColumn(GT(label), renderer, text=i)
             column.set_resizable(resize)
             column.set_expand(expand)
             self.tree_view.append_column(column)
@@ -246,7 +266,7 @@ class SearchDialog(object):
         self.close()
         self.plugin_object.on_close_dialog()
 
-    def __on_close_clicked(self, *args):
+    def __on_close_clicked(self, *_args):
         self.__on_close_dialog()
 
     def __on_window__key_press_event(self, _, event):

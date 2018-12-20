@@ -3,7 +3,22 @@ OpenSubtitles Download - Totem Plugin (see README.md)
 RPC API
 
 Created by (unknown)
-Extended by Liran Funaro <funaro@cs.technion.ac.il>
+Extended by Liran Funaro <fonaro@gmail.com>
+
+Copyright (C) 2006-2018 Liran Funaro
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from base64 import b64decode
 
@@ -40,7 +55,7 @@ def hash_block(file_handle, current_hash):
 def hash_file(file_path):
     """
     Create a hash of movie title (file name)
-    :param movie_uri: The URI of the movie file
+    :param file_path: The URI of the movie file
     :return: tuple (hash, size)
     """
     file_size = os.path.getsize(file_path)
@@ -68,7 +83,7 @@ class OpenSubtitlesApi(object):
     This contains the logic of the opensubtitles service.
     """
 
-    error_message = 'OpenSubtitles error: %s'
+    ERROR_MESSAGE_FMT = 'OpenSubtitles %s: %s'
 
     def __init__(self, user_agent, username='', password=''):
         self.user_agent = user_agent
@@ -100,7 +115,7 @@ class OpenSubtitlesApi(object):
     def log_in(self, validate=False):
         """
         Logs into the opensubtitles web service and gets a valid token for
-        the comming comunications. If we are already logged it only checks
+        the coming comunications. If we are already logged it only checks
         the if the token is still valid. It returns a tuple of success boolean
         and error message (if appropriate).
 
@@ -120,7 +135,7 @@ class OpenSubtitlesApi(object):
             token = result.get('token', None)
             if not token:
                 self.log_off()
-                raise Exception(self.error_message % token)
+                raise Exception(self.ERROR_MESSAGE_FMT % ("can't login", token))
 
             self._token = token
             return token
@@ -136,22 +151,22 @@ class OpenSubtitlesApi(object):
     def search_subtitles(self, languages_term, movie_file_path):
         movie_hash, movie_size = hash_file(movie_file_path)
 
-        hash_searchdata = {
+        hash_search_data = {
             'sublanguageid': languages_term,
             'moviehash': movie_hash,
             'moviebytesize': str(movie_size)
         }
 
-        query_searchdata = {
+        query_search_data = {
             'sublanguageid': languages_term,
             'query': os.path.basename(movie_file_path)
         }
 
-        result = self.query(lambda token: self._server.SearchSubtitles(token, [hash_searchdata]))
+        result = self.query(lambda token: self._server.SearchSubtitles(token, [hash_search_data]))
 
         data = result.get('data', None)
         if not data:
-            result = self.query(lambda token: self._server.SearchSubtitles(token, [query_searchdata]))
+            result = self.query(lambda token: self._server.SearchSubtitles(token, [query_search_data]))
 
         data = result.get('data', None)
         if not data:
@@ -175,11 +190,17 @@ class OpenSubtitlesApi(object):
 
     def query(self, expression, login=True):
         for is_last in [False, False, True]:
-            try:
-                if login:
+            if not login:
+                token = self._token
+            else:
+                try:
                     token = self.log_in()
-                else:
-                    token = self._token
+                except Exception as e:
+                    self.log_off()
+                    if is_last:
+                        raise Exception("Login error: %s" % e)
+                    continue
+            try:   
                 result = expression(token)
                 status = result.get('status', None)
                 if status == OK200:
@@ -189,6 +210,6 @@ class OpenSubtitlesApi(object):
             except Exception as e:
                 self.log_off()
                 if is_last:
-                    raise Exception(self.error_message % e)
+                    raise Exception(self.ERROR_MESSAGE_FMT % ("Query error", e))
 
-        raise Exception(self.error_message % "invalid results")
+        raise Exception(self.ERROR_MESSAGE_FMT % ("Failed query", "invalid results"))
