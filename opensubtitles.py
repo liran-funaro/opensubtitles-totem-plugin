@@ -32,7 +32,7 @@ from gi.repository import GLib, GObject
 from gi.repository import Peas, Gtk, Gdk
 from gi.repository import Gio, Pango, Totem
 
-from language_settings import LanguageSetting, LANGUAGES_MAP, GT, DGT
+from language_settings import LanguageSetting, LANGUAGES_MAP, GT
 from opensubtitles_api import OpenSubtitlesApi, SUBTITLES_EXT
 from search_dialog import SearchDialog
 from plugin_logger import plugin_logger

@@ -23,11 +23,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from gi.repository import Peas, Gtk, Gdk
 from gi.repository import Gio, Pango, Totem
 
-from language_settings import LANGUAGES_STR_CODE, LANGUAGES_CODE_MAP, GT, DGT
+from language_settings import LANGUAGES_STR_CODE, LANGUAGES_CODE_MAP, GT
 
 
 class SearchDialog(object):
-    def __init__(self, plugin_object, totem_object, pre_selected_languages=[]):
+    def __init__(self, plugin_object, totem_object, pre_selected_languages=()):
         """
         :param plugin_object: Should implement:
             - on_close_dialog()
