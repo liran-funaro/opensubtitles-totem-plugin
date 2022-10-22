@@ -20,10 +20,10 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-from gi.repository import Peas, Gtk, Gdk
-from gi.repository import Gio, Pango, Totem
+from gi.repository import Gdk, Gtk, Pango, Totem
 
-from language_settings import LANGUAGES_STR_CODE, LANGUAGES_CODE_MAP, GT
+from language_settings import GT, LANGUAGES_STR_CODE
+from opensubtitles_api import LANGUAGES_CODE_MAP
 
 
 class SearchDialog(object):

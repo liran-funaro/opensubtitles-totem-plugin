@@ -19,26 +19,31 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-import os
-import sys
-import time
 import datetime
+import os
 import pprint
+import sys
 import threading
+import time
 from ast import literal_eval
 from collections import defaultdict
 
-from gi.repository import GLib, GObject
-from gi.repository import Peas, Gtk, Gdk
-from gi.repository import Gio, Pango, Totem
+import gi
 
-from language_settings import LanguageSetting, LANGUAGES_MAP, GT
+gi.require_version('Peas', '1.0')
+gi.require_version('Gtk', '4.0')
+gi.require_version('Gdk', '4.0')
+
+from gi.repository import GLib, GObject
+from gi.repository import Peas
+from gi.repository import Gio
+
+from language_settings import GT, LANGUAGES_MAP, LanguageSetting
 from opensubtitles_api import OpenSubtitlesApi, SUBTITLES_EXT
 from search_dialog import SearchDialog
 from plugin_logger import plugin_logger
 
-
-SECONDS_PER_DAY = float(60*60*24)
+SECONDS_PER_DAY = float(60 * 60 * 24)
 
 
 class OpenSubtitles(GObject.Object, Peas.Activatable):
