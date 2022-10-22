@@ -19,34 +19,32 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+import gettext
 import os
-import sys
-import time
-import datetime
-import pprint
 import threading
-from ast import literal_eval
-from collections import defaultdict
+from typing import Dict, Optional
 
-from gi.repository import GLib, GObject
-from gi.repository import Peas, Gtk, Gdk
-from gi.repository import Gio, Pango, Totem
+from gi.repository import Gio, GLib, GObject, Peas
 
-from language_settings import LanguageSetting, LANGUAGES_MAP, GT
-from opensubtitles_api import OpenSubtitlesApi, SUBTITLES_EXT
-from search_dialog import SearchDialog
-from plugin_logger import plugin_logger
+from opensubtitles.api import OpenSubtitlesApi
+from opensubtitles.api.results import SUPPORTED_SUBTITLES_EXT
+from opensubtitles.language_settings import LanguageSetting
+from opensubtitles.plugin_logger import plugin_logger
+from opensubtitles.search_dialog import SearchDialog
 
 
-SECONDS_PER_DAY = float(60*60*24)
+def totem_cache_path():
+    cache_path = GLib.get_user_cache_dir()
+    ret = os.path.join(cache_path, 'totem')
+    GLib.mkdir_with_parents(ret, 0o777)
+    return ret
 
 
 class OpenSubtitles(GObject.Object, Peas.Activatable):
     __gtype_name__ = 'OpenSubtitles'
 
-    object = GObject.Property(type=GObject.Object)
+    object: GObject.Object = GObject.Property(type=GObject.Object)
     PROGRESS_INTERVAL = 350
-    CACHE_LIFETIME_DAYS = 1
     USER_AGENT = 'Totem'
 
     def __init__(self):
@@ -56,9 +54,9 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
         self.dialog_lock = threading.RLock()
 
         # Future members
-        self.totem_plugin = None
-        self.api = None
-        self.dialog = None
+        self.totem: Optional[GObject.Object] = None
+        self.api: Optional[OpenSubtitlesApi] = None
+        self.dialog: Optional[SearchDialog] = None
         self.dialog_action = None
         self.subs_menu = None
         self._set_subtitle_action = None
@@ -77,43 +75,41 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
         Here the sidebar page is initialized (set up the treeview, connect
         the callbacks, ...) and added to totem.
         """
-        self.totem_plugin = self.object
+        self.totem: GObject.Object = self.object
+        self.api: OpenSubtitlesApi = OpenSubtitlesApi(self.USER_AGENT, cache_dir=totem_cache_path())
 
-        # Obtain the ServerProxy and init the model
-        self.api = OpenSubtitlesApi(self.USER_AGENT)
+        self.totem.connect('file-opened', self.__on_totem__file_opened)
+        self.totem.connect('file-closed', self.__on_totem__file_closed)
 
-        self.totem_plugin.connect('file-opened', self.__on_totem__file_opened)
-        self.totem_plugin.connect('file-closed', self.__on_totem__file_closed)
-
-        self.dialog = SearchDialog.create_fake()
+        self.dialog = SearchDialog(self)
 
         self.dialog_action = Gio.SimpleAction.new("opensubtitles", None)
         self.dialog_action.connect('activate', self.open_dialog)
-        self.totem_plugin.add_action(self.dialog_action)
-        self.totem_plugin.set_accels_for_action("app.opensubtitles",
-                                                ["<Primary><Shift>s"])
+        self.totem.add_action(self.dialog_action)
+        self.totem.set_accels_for_action("app.opensubtitles",
+                                         ["<Primary><Shift>s"])
 
         # Append menu item
-        menu = self.totem_plugin.get_menu_section("subtitle-download-placeholder")
-        menu.append(GT(u'_Search OpenSubtitles...'), "app.opensubtitles")
+        menu = self.totem.get_menu_section("subtitle-download-placeholder")
+        menu.append(gettext.gettext(u'_Search OpenSubtitles...'), "app.opensubtitles")
 
         self._set_subtitle_action = Gio.SimpleAction.new("set-opensubtitles",
                                                          GLib.VariantType.new("as"))
         self._set_subtitle_action.connect('activate', self.__on_menu_set_subtitle)
-        self.totem_plugin.add_action(self._set_subtitle_action)
+        self.totem.add_action(self._set_subtitle_action)
 
         self.subs_menu = Gio.Menu()
         menu.append_section(None, self.subs_menu)
 
         # Enable dialog
-        enable_dialog = self.totem_plugin.is_playing() and self.is_support_subtitles()
+        enable_dialog = self.totem.is_playing() and self.is_support_subtitles()
         self.dialog_action.set_enabled(enable_dialog)
 
     def do_deactivate(self):
         self.close_dialog()
 
         # Cleanup menu
-        self.totem_plugin.empty_menu_section("subtitle-download-placeholder")
+        self.totem.empty_menu_section("subtitle-download-placeholder")
 
     #####################################################################
     # UI related code
@@ -125,15 +121,15 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
 
         with self.dialog_lock:
             self.close_dialog()
-            self.dialog = SearchDialog(self, self.totem_plugin, self.language.list)
+            self.dialog = SearchDialog(self)
 
         self.dialog.show()
-        self.submit_search_request(cached=True, feeling_lucky=False)
+        self.submit_search_request()
 
     def close_dialog(self):
         with self.dialog_lock:
             self.dialog.close()
-            self.dialog = SearchDialog.create_fake()
+            self.dialog = SearchDialog(self)
 
     def enable(self):
         self.dialog_action.set_enabled(True)
@@ -152,7 +148,7 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
 
     def is_support_subtitles(self, mrl=None):
         if not mrl:
-            mrl = self.totem_plugin.get_current_mrl()
+            mrl = self.totem.get_current_mrl()
         return self.check_supported_scheme(mrl) and not self.check_is_audio(mrl)
 
     @staticmethod
@@ -186,7 +182,7 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
         if self.is_support_subtitles(new_mrl):
             self.enable()
             feeling_lucky = not self.is_subtitle_exists()
-            self.submit_search_request(cached=True, feeling_lucky=feeling_lucky)
+            self.submit_search_request(feeling_lucky=feeling_lucky)
         else:
             self.disable()
 
@@ -194,23 +190,19 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
         self.disable()
 
     def __on_menu_set_subtitle(self, _action, params):
-        params = {p: params[i] for i, p in enumerate(['name', 'format', 'id'])}
+        params = {p: params[i] for i, p in enumerate(['format', 'id'])}
         self.submit_download_request(params)
 
     #####################################################################
     # Dialog Handlers
     #####################################################################
 
-    def on_close_dialog(self):
-        with self.dialog_lock:
-            self.dialog = SearchDialog.create_fake()
-
     def on_language_change(self, index, language):
         plugin_logger.info("Write language %s to index %s", language, index)
         self.language.update_language(index, language)
 
     def on_search_request(self):
-        self.submit_search_request(cached=False, feeling_lucky=False)
+        self.submit_search_request(refresh_cache=True)
 
     def on_download_request(self, selected_dict):
         self.submit_download_request(selected_dict)
@@ -219,120 +211,78 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
     # Subtitles lookup and download
     #####################################################################
 
-    def submit_search_request(self, cached=False, feeling_lucky=False):
-        self.submit_background_work(u'Searching subtitles...', self.search_subtitles, [cached],
+    def submit_search_request(self, refresh_cache: bool = False, feeling_lucky: bool = False):
+        self.submit_background_work(u'Searching subtitles...', self.search_subtitles, [refresh_cache],
                                     self.handle_search_results, [feeling_lucky])
 
     def submit_download_request(self, selected_dict):
         self.submit_background_work(u'Downloading subtitles...', self.download_subtitles,
                                     [selected_dict], self.handle_downloaded_subtitle)
 
-    def search_subtitles(self, cached=False):
-        self.clear_cache()
-
-        if cached:
-            results = self.read_cached_search_results()
-            if results:
-                return results
-
-        languages = self.language.term
+    def search_subtitles(self, refresh_cache: bool):
         movie_file_path = self.movie_file().get_path()
-        return self.api.search_subtitles(languages, movie_file_path)
+        return self.api.search_subtitles(self.language.list, movie_file_path, refresh_cache=refresh_cache)
 
-    def download_subtitles(self, selected_dict):
-        self.clear_cache()
-
-        subtitle_name = selected_dict['name']
+    def download_subtitles(self, selected_dict: Dict[str, str]):
         subtitle_format = selected_dict['format']
+        content = self.api.download_subtitles(selected_dict['id'], subtitle_format)
+        return self.save_subtitles(content, subtitle_format)
 
-        # Lookup the subtitle in the cache
-        cached_subtitle = self.cache_file(subtitle_name)
-        content = self._read_file(cached_subtitle)
-        if not content:
-            subtitle_id = selected_dict['id']
-            content = self.api.download_subtitles(subtitle_id)
-        return self.save_subtitles(content, subtitle_name, subtitle_format)
-
-    def handle_search_results(self, results, feeling_lucky=False):
+    def handle_search_results(self, results: Optional[api.Query], feeling_lucky=False):
         if not results:
             return
 
-        self.write_cached_search_results(results)
-
-        lang_order = {l: i for i, l in enumerate(self.language.list)}
-        lang_order = defaultdict(lambda: float('inf'), **lang_order)
-
-        results = list(sorted([r for r in results if r['SubFormat'] in SUBTITLES_EXT],
-                              key=lambda x: (lang_order[x['SubLanguageID']], -float(x['SubRating']))))
         self._populate_submenu(results)
         self._populate_treeview(results)
 
-        if feeling_lucky and len(results) > 0:
+        if feeling_lucky and results.has_results:
             r = results[0]
-            selected_dict = {'name': r['SubFileName'],
-                             'format': r['SubFormat'],
-                             'id': r['IDSubtitleFile']}
-            self.submit_download_request(selected_dict)
+            self.submit_download_request({'format': r.ext, 'id': r.id})
 
-    def _populate_treeview(self, results):
+    def _populate_treeview(self, results: api.Query):
         item_list = []
         for r in results:
-            item = [
-                LANGUAGES_MAP[r['SubLanguageID']],
-                r['SubFileName'],
-                r['SubFormat'],
-                r['SubRating'],
-                r['IDSubtitleFile'],
-                r['SubSize'],
-            ]
+            item = r.summary(["language", "file name", "ext", "rating", "id", "size"])
             item_list.append(item)
-
         self.dialog.populate_treeview(item_list)
 
-    def _populate_submenu(self, results):
+    def _populate_submenu(self, results: api.Query):
         self.subs_menu.remove_all()
         for r in results:
-            lang_name = LANGUAGES_MAP[r['SubLanguageID']]
-            file_name = r['SubFileName']
+            lang_name = r['language']
+            file_name = r['file name']
             menu_title = u'\t%s: %s' % (lang_name, file_name)
-            menu_item = Gio.MenuItem.new(GT(menu_title), "app.set-opensubtitles")
+            menu_item = Gio.MenuItem.new(gettext.gettext(menu_title), "app.set-opensubtitles")
 
-            data = GLib.Variant('as', [
-                r['SubFileName'],
-                r['SubFormat'],
-                r['IDSubtitleFile']
-            ])
-            menu_item.set_action_and_target_value("app.set-opensubtitles", data)
+            menu_item.set_action_and_target_value("app.set-opensubtitles", GLib.Variant('as', [r.ext, r.id]))
             self.subs_menu.append_item(menu_item)
 
-    def save_subtitles(self, subtitles, name, extension):
-        if not subtitles or not name or not extension:
-            return
-
-        # Delete all previous cached subtitle for this file
-        for ext in SUBTITLES_EXT:
-            # In the cache dir and in the movie dir
+    def get_existing_subtitles_files(self):
+        for ext in SUPPORTED_SUBTITLES_EXT:
             try:
-                old_subtitle_file = self.subtitle_file(ext, cache=False)
-                old_subtitle_file.delete(None)
+                subtitle_file = self.subtitle_file(ext)
+                if subtitle_file.query_exists():
+                    yield subtitle_file
             except Exception as e:
                 plugin_logger.exception(e)
 
-        save_to_files = [
-            self.cache_file(name),
-            self.subtitle_file(extension, cache=False),
-            self.subtitle_file(extension, cache=True)
-        ]
+    def save_subtitles(self, subtitles, extension):
+        if not subtitles or not extension:
+            return
 
-        for i, f in enumerate(save_to_files):
+        # Delete all previous subtitle for this file in the movie directory
+        for subtitle_file in self.get_existing_subtitles_files():
             try:
-                self._write_file(f, subtitles)
-                # Stop if manage to save in the movie folder
-                if i > 0:
-                    return f.get_uri()
+                subtitle_file.delete()
             except Exception as e:
-                print(e)
-                continue
+                plugin_logger.exception(e)
+
+        try:
+            f = self.subtitle_file(extension)
+            self._write_file(self.subtitle_file(extension), subtitles)
+            return f.get_uri()
+        except Exception as e:
+            plugin_logger.exception("Failed to save subtitles file: %s", e)
 
         raise Exception("Cannot save subtitle")
 
@@ -341,33 +291,11 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
             return
 
         self.close_dialog()
-        self.totem_plugin.set_current_subtitle(subtitle_uri)
+        self.totem.set_current_subtitle(subtitle_uri)
 
     #####################################################################
     # Filesystem helpers
     #####################################################################
-
-    def cached_search_results_file(self):
-        return self.cache_file("%s.%s" % (self.movie_name(), "opensubtitles"))
-
-    def read_cached_search_results(self):
-        result_cache = self.cached_search_results_file()
-        data = self._read_file(result_cache)
-        if not data:
-            return
-        try:
-            if sys.version_info[0] < 3:
-                data = str(data)
-            else:
-                data = str(data, 'utf-8')
-            return literal_eval(data)
-        except:
-            return
-
-    def write_cached_search_results(self, results):
-        result_cache = self.cached_search_results_file()
-        file_content = pprint.pformat(results).encode('utf-8')
-        self._write_file(result_cache, file_content)
 
     @staticmethod
     def _write_file(file_obj, content):
@@ -394,56 +322,19 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
     def movie_file(self):
         return Gio.file_new_for_uri(self.mrl_filename)
 
-    def subtitle_path(self, ext, cache=False):
-        movie_name = self.movie_name()
-        if cache:
-            dir_path = self._cache_subtitles_dir()
-        else:
-            dir_path = self._movie_dir()
-        return os.path.join(dir_path, "%s.%s" % (movie_name, ext))
+    def subtitle_path(self, ext):
+        return os.path.join(self._movie_dir(), f"{self.movie_name()}.{ext}")
 
-    def subtitle_file(self, ext, cache=False):
-        return Gio.file_new_for_path(self.subtitle_path(ext, cache))
+    def subtitle_file(self, ext) -> Gio.File:
+        return Gio.file_new_for_path(self.subtitle_path(ext))
 
     def is_subtitle_exists(self):
-        return any(self.subtitle_file(ext, cache=False).query_exists() for ext in SUBTITLES_EXT)
-
-    def cache_file(self, filename):
-        dir_path = self._cache_subtitles_dir()
-        directory = Gio.file_new_for_path(dir_path)
-        if not directory.query_exists():
-            directory.make_directory_with_parents(None)
-        file_path = os.path.join(dir_path, filename)
-        return Gio.file_new_for_path(file_path)
-
-    @staticmethod
-    def _cache_subtitles_dir():
-        bpath = GLib.get_user_cache_dir()
-        ret = os.path.join(bpath, 'totem', 'subtitles')
-        GLib.mkdir_with_parents(ret, 0o777)
-        return ret
+        return any(self.subtitle_file(ext).query_exists() for ext in SUPPORTED_SUBTITLES_EXT)
 
     def _movie_dir(self):
         directory = Gio.file_new_for_uri(self.mrl_filename)
         parent = directory.get_parent()
         return parent.get_path()
-
-    def clear_cache(self):
-        dir_path = self._cache_subtitles_dir()
-        directory = Gio.file_new_for_path(dir_path)
-        children = directory.enumerate_children("time::modified,standard::name",
-                                                Gio.FileQueryInfoFlags.NONE, None)
-
-        current_time = datetime.datetime.fromtimestamp(time.time())
-        for d in children:
-            modified = datetime.datetime.fromtimestamp(
-                d.get_attribute_uint64("time::modified")
-            )
-            days = (current_time - modified).total_seconds() / SECONDS_PER_DAY
-            if days > self.CACHE_LIFETIME_DAYS:
-                plugin_logger.info("Delete: %s", d.get_name())
-                path = os.path.join(dir_path, d.get_name())
-                Gio.file_new_for_path(path).delete(None)
 
     ########################################################
     # Background Work

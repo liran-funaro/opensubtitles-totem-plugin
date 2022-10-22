@@ -2,7 +2,7 @@
 Loader=python3
 Module=opensubtitles
 IAge=1
-Name=Subtitle Downloader
+Name=Open-Subtitles Downloader
 Name[ar]=مُنزّل الترجمات
 Name[as]=উপশীৰ্ষকসমূহ ডাউনল'ডাৰ
 Name[ast]=Descargador de subtítulos
