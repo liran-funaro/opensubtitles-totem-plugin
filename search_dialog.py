@@ -22,8 +22,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from gi.repository import Gdk, Gtk, Pango, Totem
 
-from language_settings import GT, LANGUAGES_STR_CODE
-from opensubtitles_api import LANGUAGES_CODE_MAP
+from lang import GT, LANGUAGES_CODE_MAP, LANGUAGES_STR_CODE
 
 
 class SearchDialog(object):

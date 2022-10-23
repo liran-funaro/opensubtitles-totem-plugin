@@ -38,7 +38,8 @@ from gi.repository import GLib, GObject
 from gi.repository import Peas
 from gi.repository import Gio
 
-from language_settings import GT, LANGUAGES_MAP, LanguageSetting
+from language_settings import LanguageSetting
+from lang import GT, LANGUAGES_MAP
 from opensubtitles_api import OpenSubtitlesApi, SUBTITLES_EXT
 from search_dialog import SearchDialog
 from plugin_logger import plugin_logger
