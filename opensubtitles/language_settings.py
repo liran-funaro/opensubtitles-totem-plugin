@@ -25,8 +25,8 @@ import logging
 
 from gi.repository import Gio
 
-from opensubtitles_api.lang import Language, Languages, normalize_language
-from plugin_logger import plugin_logger
+from opensubtitles.api.lang import Language, Languages, normalize_language
+from opensubtitles.plugin_logger import plugin_logger
 
 
 def local_language():
@@ -52,7 +52,7 @@ class LanguageSetting(object):
         self.set_languages(read_languages)
 
     def set_languages(self, languages):
-        self.__languages = [l.strip() for l in languages if l.strip()]
+        self.__languages = [lang.strip() for lang in languages if lang.strip()]
         self.write_settings()
 
     def __getitem__(self, item):

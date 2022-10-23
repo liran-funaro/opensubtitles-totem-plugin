@@ -5,11 +5,11 @@ from typing import Dict, Iterable, List, Optional, TYPE_CHECKING
 
 import tabulate
 
-from opensubtitles_api.hash import hash_query
-from opensubtitles_api.lang import iter_normalize_languages, Languages, LANGUAGES_3_TO_NATURAL
+from opensubtitles.api.hash import hash_query
+from opensubtitles.api.lang import iter_normalize_languages, Languages, LANGUAGES_3_TO_NATURAL
 
 if TYPE_CHECKING:
-    from opensubtitles_api import OpenSubtitlesApi
+    from opensubtitles.api import OpenSubtitlesApi
 
 SUPPORTED_SUBTITLES_EXT = {"asc", "txt", "sub", "srt", "smi", "ssa", "ass"}
 

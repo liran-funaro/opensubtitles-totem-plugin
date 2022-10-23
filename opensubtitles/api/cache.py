@@ -5,7 +5,7 @@ import tempfile
 from datetime import datetime
 from typing import Optional
 
-from opensubtitles_api.results import Query
+from opensubtitles.api.results import Query
 
 SECONDS_PER_DAY = float(60 * 60 * 24)
 CACHE_LIFETIME_DAYS = 1

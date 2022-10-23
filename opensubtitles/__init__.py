@@ -26,12 +26,11 @@ from typing import Dict, Optional
 
 from gi.repository import Gio, GLib, GObject, Peas
 
-import opensubtitles_api
-from language_settings import LanguageSetting
-from opensubtitles_api import OpenSubtitlesApi
-from opensubtitles_api.results import SUPPORTED_SUBTITLES_EXT
-from plugin_logger import plugin_logger
-from search_dialog import SearchDialog
+from opensubtitles.api import OpenSubtitlesApi
+from opensubtitles.api.results import SUPPORTED_SUBTITLES_EXT
+from opensubtitles.language_settings import LanguageSetting
+from opensubtitles.plugin_logger import plugin_logger
+from opensubtitles.search_dialog import SearchDialog
 
 
 def totem_cache_path():
@@ -229,7 +228,7 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
         content = self.api.download_subtitles(selected_dict['id'], subtitle_format)
         return self.save_subtitles(content, subtitle_format)
 
-    def handle_search_results(self, results: Optional[opensubtitles_api.Query], feeling_lucky=False):
+    def handle_search_results(self, results: Optional[api.Query], feeling_lucky=False):
         if not results:
             return
 
@@ -240,14 +239,14 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
             r = results[0]
             self.submit_download_request({'format': r.ext, 'id': r.id})
 
-    def _populate_treeview(self, results: opensubtitles_api.Query):
+    def _populate_treeview(self, results: api.Query):
         item_list = []
         for r in results:
             item = r.summary(["language", "file name", "ext", "rating", "id", "size"])
             item_list.append(item)
         self.dialog.populate_treeview(item_list)
 
-    def _populate_submenu(self, results: opensubtitles_api.Query):
+    def _populate_submenu(self, results: api.Query):
         self.subs_menu.remove_all()
         for r in results:
             lang_name = r['language']
@@ -258,15 +257,23 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
             menu_item.set_action_and_target_value("app.set-opensubtitles", GLib.Variant('as', [r.ext, r.id]))
             self.subs_menu.append_item(menu_item)
 
+    def get_existing_subtitles_files(self):
+        for ext in SUPPORTED_SUBTITLES_EXT:
+            try:
+                subtitle_file = self.subtitle_file(ext)
+                if subtitle_file.query_exists():
+                    yield subtitle_file
+            except Exception as e:
+                plugin_logger.exception(e)
+
     def save_subtitles(self, subtitles, extension):
         if not subtitles or not extension:
             return
 
         # Delete all previous subtitle for this file in the movie directory
-        for ext in SUPPORTED_SUBTITLES_EXT:
+        for subtitle_file in self.get_existing_subtitles_files():
             try:
-                old_subtitle_file = self.subtitle_file(ext)
-                old_subtitle_file.delete(None)
+                subtitle_file.delete()
             except Exception as e:
                 plugin_logger.exception(e)
 
@@ -318,7 +325,7 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
     def subtitle_path(self, ext):
         return os.path.join(self._movie_dir(), f"{self.movie_name()}.{ext}")
 
-    def subtitle_file(self, ext):
+    def subtitle_file(self, ext) -> Gio.File:
         return Gio.file_new_for_path(self.subtitle_path(ext))
 
     def is_subtitle_exists(self):

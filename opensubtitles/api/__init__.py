@@ -28,10 +28,10 @@ import zlib
 from base64 import b64decode
 from typing import List, Optional
 
-from opensubtitles_api.cache import QueryCache
-from opensubtitles_api.hash import hash_file
-from opensubtitles_api.lang import Languages
-from opensubtitles_api.results import Query
+from opensubtitles.api.cache import QueryCache
+from opensubtitles.api.hash import hash_file
+from opensubtitles.api.lang import Languages
+from opensubtitles.api.results import Query
 
 # See https://trac.opensubtitles.org/projects/opensubtitles/wiki/XMLRPC
 OPENSUBTITLES_RPC = 'https://api.opensubtitles.org:443/xml-rpc'
@@ -138,14 +138,15 @@ class OpenSubtitlesApi:
             self._cache.write_cached_query(query)
         return query
 
-    def search_subtitles(self, languages: List[str], movie_file_path: str,
+    def search_subtitles(self, languages: List[str], movie_file_path: Optional[str] = None,
                          movie_title: Optional[str] = None, refresh_cache=False):
-        q = self.search_subtitles_with_file(languages, movie_file_path, refresh_cache=refresh_cache)
-        if q.has_results:
-            return q
-        self.logger.debug("Failed getting subtitles using movie file metadata. Trying with title.")
+        if movie_file_path is not None:
+            q = self.search_subtitles_with_file(languages, movie_file_path, refresh_cache=refresh_cache)
+            if q.has_results:
+                return q
+            self.logger.debug("Failed getting subtitles using movie file metadata. Trying with title.")
 
-        if movie_title is None:
+        if movie_title is None and movie_file_path is not None:
             file_name = os.path.splitext(os.path.basename(movie_file_path))[0]
             movie_title = file_name.replace(".", " ")
             movie_title = movie_title.replace("DDP5", "")
@@ -153,9 +154,11 @@ class OpenSubtitlesApi:
             movie_title = movie_title.replace("265-EVO", "")
             movie_title = movie_title.strip()
             logging.log(logging.DEBUG, "Movie title: %s", movie_title)
-        return self.search_subtitles_with_title(
-            languages, movie_title, movie_file_path=movie_file_path, refresh_cache=refresh_cache
-        )
+            
+        if movie_title is not None:
+            return self.search_subtitles_with_title(
+                languages, movie_title, movie_file_path=movie_file_path, refresh_cache=refresh_cache
+            )
 
     def download_subtitles(self, subtitle_id, refresh_cache=False) -> bytes:
         if not refresh_cache:

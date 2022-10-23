@@ -26,7 +26,7 @@ from typing import List, TYPE_CHECKING
 
 from gi.repository import Gdk, Gtk, Pango
 
-from opensubtitles_api.lang import GT, LANGUAGES_2_TO_3, LANGUAGES_NATURAL_TO_2
+from opensubtitles.api.lang import GT, LANGUAGES_2_TO_3, LANGUAGES_NATURAL_TO_2
 
 if TYPE_CHECKING:
     from opensubtitles import OpenSubtitles
