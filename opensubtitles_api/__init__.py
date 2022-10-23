@@ -129,9 +129,9 @@ class OpenSubtitlesApi:
 
     def _make_query(self, languages: List[str], refresh_cache=False, **kwargs) -> Query:
         query = Query(self, languages, **kwargs)
-        if not refresh_cache and not query.has_results:
+        if not refresh_cache and not query.has_response:
             self._cache.read_cached_query(query)
-        if not query.has_results:
+        if not query.has_response:
             query.set_response(
                 self.query(lambda t: self._server.SearchSubtitles(t, [query.query_data]))
             )
@@ -180,6 +180,7 @@ class OpenSubtitlesApi:
     ################################################################
 
     def query(self, expression, login=True):
+        self.logger.info("Querying server")
         for is_last in [False, False, True]:
             if not login:
                 token = self._token
