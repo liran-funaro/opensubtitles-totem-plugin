@@ -27,10 +27,11 @@ gettext.textdomain("totem")
 DGT = gettext.dgettext
 GT = gettext.gettext
 
-Languages = List[str]
+Language = str
+Languages = List[Language]
 
 # Map of ISO 639-1 language codes to the codes used by opensubtitles.org API
-LANGUAGES_CODE_MAP = {
+LANGUAGES_2_TO_3 = {
     'sq': 'alb',
     'ar': 'ara',
     'hy': 'arm',
@@ -87,7 +88,7 @@ LANGUAGES_CODE_MAP = {
 }
 
 # Map of the language codes used by opensubtitles.org API to their human-readable name
-LANGUAGES_STR_CODE = [
+LANGUAGES_NATURAL_TO_2 = [
     (DGT('iso_639_3', 'Albanian'), 'sq'),
     (DGT('iso_639_3', 'Arabic'), 'ar'),
     (DGT('iso_639_3', 'Armenian'), 'hy'),
@@ -143,18 +144,18 @@ LANGUAGES_STR_CODE = [
     (DGT('iso_639_3', 'Vietnamese'), 'vi'),
 ]
 
-LANGUAGES_MAP = {LANGUAGES_CODE_MAP[code]: lang for lang, code in LANGUAGES_STR_CODE}
+LANGUAGES_3_TO_NATURAL = {LANGUAGES_2_TO_3[code]: lang for lang, code in LANGUAGES_NATURAL_TO_2}
 
-GENERIC_LANGUAGE_MAP = {
-    **LANGUAGES_CODE_MAP,
-    **{k: k for k in LANGUAGES_CODE_MAP.values()},
-    **{lang.lower(): LANGUAGES_CODE_MAP[code] for lang, code in LANGUAGES_STR_CODE}
+LANGUAGES_ALL_TO_3 = {
+    **LANGUAGES_2_TO_3,
+    **{k: k for k in LANGUAGES_2_TO_3.values()},
+    **{lang.lower(): LANGUAGES_2_TO_3[code] for lang, code in LANGUAGES_NATURAL_TO_2}
 }
 
 
+def normalize_language(language: Language):
+    return LANGUAGES_ALL_TO_3.get(language.lower())
+
+
 def iter_normalize_languages(languages: Languages):
-    return map(GENERIC_LANGUAGE_MAP.get, map(str.lower, languages))
-
-
-def get_language_term(languages: Languages):
-    return ",".join(iter_normalize_languages(languages))
+    return map(normalize_language, languages)

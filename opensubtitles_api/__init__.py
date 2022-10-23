@@ -29,9 +29,9 @@ from base64 import b64decode
 from typing import List, Optional
 
 from opensubtitles_api.cache import QueryCache
-from opensubtitles_api.hash import block_mask, hash_file, longlong_format, longlong_per_block, longlong_size
-from opensubtitles_api.lang import GENERIC_LANGUAGE_MAP, Languages, LANGUAGES_CODE_MAP, LANGUAGES_MAP
-from opensubtitles_api.results import Query, SUBTITLES_EXT
+from opensubtitles_api.hash import hash_file
+from opensubtitles_api.lang import Languages
+from opensubtitles_api.results import Query
 
 # See https://trac.opensubtitles.org/projects/opensubtitles/wiki/XMLRPC
 OPENSUBTITLES_RPC = 'https://api.opensubtitles.org:443/xml-rpc'
@@ -48,7 +48,7 @@ class OpenSubtitlesApi:
     ERROR_MESSAGE_FMT = u'OpenSubtitles %s: %s'
 
     def __init__(self, user_agent, username='', password='', cache_dir: Optional[str] = None):
-        self.logger = logging.getLogger("OpenSubtitlesApi")
+        self.logger = logging.getLogger("opensubtitles-api")
         self.user_agent = user_agent
         self.username = username
         self.password = password
@@ -94,7 +94,7 @@ class OpenSubtitlesApi:
                 if self.validate_log_in():
                     return self._token
 
-            result = self.query(lambda t: self._server.LogIn(
+            result = self.query(lambda _: self._server.LogIn(
                 self.username, self.password, 'eng', self.user_agent
             ), login=False)
 
@@ -143,7 +143,7 @@ class OpenSubtitlesApi:
         q = self.search_subtitles_with_file(languages, movie_file_path, refresh_cache=refresh_cache)
         if q.has_results:
             return q
-        self.logger.error("Failed getting file's subtitles")
+        self.logger.debug("Failed getting subtitles using movie file metadata. Trying with title.")
 
         if movie_title is None:
             file_name = os.path.splitext(os.path.basename(movie_file_path))[0]
@@ -179,29 +179,33 @@ class OpenSubtitlesApi:
     # Helper query
     ################################################################
 
-    def query(self, expression, login=True):
+    def query(self, expression, login=True, attempts=3):
         self.logger.info("Querying server")
-        for is_last in [False, False, True]:
+        attempts = max(1, attempts)
+        last_attempt = attempts - 1
+        for i in range(attempts):
             if not login:
                 token = self._token
             else:
                 try:
                     token = self.log_in()
                 except Exception as e:
+                    self.logger.error("Failed login: %s", e)
                     self.log_off()
-                    if is_last:
+                    if i == last_attempt:
                         raise Exception("Login error: %s" % e)
                     continue
             try:
                 result = expression(token)
                 status = result.get('status', None)
-                if status == OK200:
-                    return result
+                if status != OK200:
+                    self.logger.error("Bas response: %s", status)
+                    raise Exception(f"invalid results. Status: {status}")
                 else:
-                    raise Exception("invalid results. Status: %s" % status)
+                    return result
             except Exception as e:
                 self.log_off()
-                if is_last:
+                if i == last_attempt:
                     raise Exception(self.ERROR_MESSAGE_FMT % ("Query error", e))
 
         raise Exception(self.ERROR_MESSAGE_FMT % ("Failed query", "invalid results"))

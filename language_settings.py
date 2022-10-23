@@ -21,17 +21,18 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import locale
+import logging
 
 from gi.repository import Gio
 
-from lang import LANGUAGES_CODE_MAP
+from opensubtitles_api.lang import Language, Languages, normalize_language
 from plugin_logger import plugin_logger
 
 
 def local_language():
     try:
         language_code, _ = locale.getlocale()
-        return LANGUAGES_CODE_MAP[language_code.split('_')[0]]
+        return normalize_language(language_code.split('_')[0])
     except (ImportError, IndexError, AttributeError, KeyError) as e:
         plugin_logger.exception(e)
         return 'eng'
@@ -41,16 +42,27 @@ class LanguageSetting(object):
     SCHEMA = 'org.gnome.totem.plugins.opensubtitles'
 
     def __init__(self):
+        self.logger = logging.getLogger("opensubtitles-language")
         self.settings = Gio.Settings.new(self.SCHEMA)
+        self.__languages = []
+
         read_languages = self.read_setting()
         if len(read_languages) == 0:
             read_languages.append(local_language())
-        self.__languages = []
         self.set_languages(read_languages)
 
     def set_languages(self, languages):
         self.__languages = [l.strip() for l in languages if l.strip()]
         self.write_settings()
+
+    def __getitem__(self, item):
+        return self.__languages[item]
+
+    def language_index(self, language: Language):
+        try:
+            return self.__languages.index(normalize_language(language))
+        except ValueError:
+            return None
 
     def update_language(self, index, language):
         language = language.strip()
@@ -65,7 +77,7 @@ class LanguageSetting(object):
         self.write_settings()
 
     @property
-    def list(self):
+    def list(self) -> Languages:
         return list(self.__languages)
 
     @property
@@ -77,9 +89,10 @@ class LanguageSetting(object):
 
     def read_setting(self):
         try:
-            lang = self.settings.get_string('language')
-            return [l.strip() for l in lang.split(",")]
-        except:
+            language = self.settings.get_string('language')
+            return [lang.strip() for lang in language.split(",")]
+        except Exception as e:
+            self.logger.error("Failed reading language settings: %s", e)
             return []
 
     def write_settings(self):

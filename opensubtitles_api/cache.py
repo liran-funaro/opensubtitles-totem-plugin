@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import tempfile
 from datetime import datetime
 from typing import Optional
 
@@ -8,13 +9,11 @@ from opensubtitles_api.results import Query
 
 SECONDS_PER_DAY = float(60 * 60 * 24)
 CACHE_LIFETIME_DAYS = 1
+SUBS_CACHE_LIFETIME_DAYS = 7
 
 try:
     from appdirs import user_cache_dir
 except ImportError:
-    import tempfile
-
-
     def user_cache_dir():
         return tempfile.mkdtemp()
 
@@ -24,7 +23,7 @@ class QueryCache:
         self.logger = logging.getLogger("opensubtitles-cache")
         if cache_dir is None:
             cache_dir = user_cache_dir()
-        self._cache_dir = os.path.join(cache_dir, 'totem', 'opensubtitles')
+        self._cache_dir = os.path.join(cache_dir, 'opensubtitles')
         self.logger.info("Cache dir: %s", self._cache_dir)
 
     def _write_json_file(self, file_path, content: dict):
@@ -92,6 +91,7 @@ class QueryCache:
         current_time = datetime.now()
 
         for root, _, files in os.walk(self.cache_path):
+
             for f in files:
                 path = os.path.join(root, f)
                 modified = datetime.fromtimestamp(os.path.getmtime(path))

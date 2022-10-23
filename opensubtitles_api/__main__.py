@@ -3,7 +3,7 @@ import logging
 import os
 from pprint import pprint
 
-from opensubtitles_api import LANGUAGES_CODE_MAP, OpenSubtitlesApi
+from opensubtitles_api import LANGUAGES_2_TO_3, OpenSubtitlesApi
 
 
 def extant_file_exist(input_path: str) -> str:
@@ -20,7 +20,7 @@ def main():
     p.add_argument("-t", "--title", type=str)
     p.add_argument("-o", "--op", action="append", default=["query"], choices=["query", "download"])
     p.add_argument("-i", "--index", type=int)
-    p.add_argument("-l", "--language", nargs="*", default=["he", "en"], choices=LANGUAGES_CODE_MAP.keys())
+    p.add_argument("-l", "--language", nargs="*", default=["he", "en"], choices=LANGUAGES_2_TO_3.keys())
     args = p.parse_args()
 
     if args.file_path is None and args.title is None:
