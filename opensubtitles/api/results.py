@@ -5,6 +5,7 @@ from typing import Dict, Iterable, List, Optional, TYPE_CHECKING
 
 import tabulate
 
+from opensubtitles.api.filenameparser import parse_filename
 from opensubtitles.api.hash import hash_query
 from opensubtitles.api.lang import iter_normalize_languages, Languages, LANGUAGES_3_TO_NATURAL
 
@@ -21,6 +22,7 @@ class Subtitles:
         self.owner = owner
         self.query = query
         self.data = data
+        self.properties = parse_filename(data['SubFileName'])
         self.helper_data = {
             "id": data['IDSubtitleFile'],
             "language": LANGUAGES_3_TO_NATURAL[data['SubLanguageID']],
@@ -50,6 +52,23 @@ class Subtitles:
     @property
     def ext(self):
         return self.helper_data['ext']
+
+    @property
+    def score(self) -> float:
+        score = float(self.get("rating"))
+
+        def get_property(p: dict, key: str) -> set:
+            return set([v.replace("-. ", "").lower() for v in p.get(key, [])])
+
+        def match_properties(key: str):
+            my_prop = get_property(self.properties, key)
+            query_prop = get_property(self.query.properties, key)
+            return len(my_prop.intersection(query_prop))
+
+        score += 10 * match_properties("release-format")
+        score += 10 * match_properties("group")
+        score += 100 * match_properties("tv-term")
+        return score
 
     def summary(self, headers=None):
         if headers is None:
@@ -88,6 +107,10 @@ class Query:
         self.owner = owner
         self.languages = list(iter_normalize_languages(languages))
         self.movie_file_path = movie_file_path
+        if movie_file_path is not None:
+            self.properties = parse_filename(movie_file_path)
+        else:
+            self.properties = {}
 
         self.query_data = {
             'sublanguageid': ",".join(self.languages),
@@ -117,9 +140,10 @@ class Query:
 
         lang_order = defaultdict(lambda: float('inf'), **{l: i for i, l in enumerate(self.languages)})
 
+        results = [Subtitles(self.owner, self, r) for r in data if r['SubFormat'] in SUPPORTED_SUBTITLES_EXT]
         self.results: List[Subtitles] = sorted(
-            (Subtitles(self.owner, self, r) for r in data if r['SubFormat'] in SUPPORTED_SUBTITLES_EXT),
-            key=lambda x: (lang_order[x['SubLanguageID']], -float(x['SubRating']))
+            results,
+            key=lambda x: (lang_order[x['SubLanguageID']], -x.score)
         )
         return True
 

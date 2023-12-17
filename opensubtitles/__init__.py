@@ -98,8 +98,9 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
         self._set_subtitle_action.connect('activate', self.__on_menu_set_subtitle)
         self.totem.add_action(self._set_subtitle_action)
 
+        # See https://docs.gtk.org/gio/
         self.subs_menu = Gio.Menu()
-        menu.append_section(None, self.subs_menu)
+        menu.append_submenu("Open Subtitles", self.subs_menu)
 
         # Enable dialog
         enable_dialog = self.totem.is_playing() and self.is_support_subtitles()

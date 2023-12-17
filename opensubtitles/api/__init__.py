@@ -21,7 +21,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import logging
-import os
 import threading
 import xmlrpc.client
 import zlib
@@ -29,6 +28,7 @@ from base64 import b64decode
 from typing import List, Optional
 
 from opensubtitles.api.cache import QueryCache
+from opensubtitles.api.filenameparser import parse_filename
 from opensubtitles.api.hash import hash_file
 from opensubtitles.api.lang import Languages
 from opensubtitles.api.results import Query
@@ -49,6 +49,8 @@ class OpenSubtitlesApi:
 
     def __init__(self, user_agent, username='', password='', cache_dir: Optional[str] = None):
         self.logger = logging.getLogger("opensubtitles-api")
+        self.logger.addHandler(logging.StreamHandler())
+        self.logger.setLevel(logging.DEBUG)
         self.user_agent = user_agent
         self.username = username
         self.password = password
@@ -94,11 +96,13 @@ class OpenSubtitlesApi:
                 if self.validate_log_in():
                     return self._token
 
+            self.logger.debug("Logging in")
             result = self.query(lambda _: self._server.LogIn(
                 self.username, self.password, 'eng', self.user_agent
             ), login=False)
 
             token = result.get('token', None)
+            self.logger.debug(result.get('user'))
             if not token:
                 self.log_off()
                 raise Exception(self.ERROR_MESSAGE_FMT % ("can't login", token))
@@ -114,8 +118,17 @@ class OpenSubtitlesApi:
     # User queries
     ################################################################
 
-    def search_subtitles_with_title(self, languages: List[str], movie_title: str,
+    def search_subtitles_with_title(self, languages: List[str], movie_title: Optional[str] = None,
                                     movie_file_path: Optional[str] = None, refresh_cache=False):
+        if movie_file_path is not None:
+            movie_properties = parse_filename(movie_file_path)
+            self.logger.debug("Movie properties: %s", movie_properties)
+        else:
+            movie_properties = {}
+
+        if movie_title is None and "search-term" in movie_properties:
+            movie_title = movie_properties["search-term"]
+
         return self._make_query(languages, movie_file_path=movie_file_path, **{
             'query': movie_title
         }, refresh_cache=refresh_cache)
@@ -146,19 +159,9 @@ class OpenSubtitlesApi:
                 return q
             self.logger.debug("Failed getting subtitles using movie file metadata. Trying with title.")
 
-        if movie_title is None and movie_file_path is not None:
-            file_name = os.path.splitext(os.path.basename(movie_file_path))[0]
-            movie_title = file_name.replace(".", " ")
-            movie_title = movie_title.replace("DDP5", "")
-            movie_title = movie_title.replace("Atmos", "")
-            movie_title = movie_title.replace("265-EVO", "")
-            movie_title = movie_title.strip()
-            logging.log(logging.DEBUG, "Movie title: %s", movie_title)
-            
-        if movie_title is not None:
-            return self.search_subtitles_with_title(
-                languages, movie_title, movie_file_path=movie_file_path, refresh_cache=refresh_cache
-            )
+        return self.search_subtitles_with_title(
+            languages, movie_title, movie_file_path=movie_file_path, refresh_cache=refresh_cache
+        )
 
     def download_subtitles(self, subtitle_id, refresh_cache=False) -> bytes:
         if not refresh_cache:

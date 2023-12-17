@@ -5,10 +5,10 @@ from typing import Dict
 
 block_size = 2 ** 16
 min_file_size = block_size * 2
-longlong_format = 'q'  # long long
+longlong_format = '<q'  # little-endian long long
 longlong_size = struct.calcsize(longlong_format)
 longlong_per_block = int(block_size / longlong_size)
-block_mask = 0xFFFFFFFFFFFFFFFF0
+block_mask = 0xFFFFFFFFFFFFFFFF  # to remain as 64bit number
 
 
 def read_longlong(file_handle):
@@ -27,6 +27,7 @@ def hash_block(file_handle, current_hash):
 def hash_file(file_path):
     """
     Create a hash of movie title (file name)
+    See: https://trac.opensubtitles.org/projects/opensubtitles/wiki/HashSourceCodes
     :param file_path: The URI of the movie file
     :return: tuple (hash, size)
     """
@@ -38,12 +39,12 @@ def hash_file(file_path):
     file_hash = file_size
     last_block = max(0, file_size - block_size)
 
-    with open(file_path, "rb") as file_handle:
+    with open(file_path, "rb") as f:
         for hash_place in [0, last_block]:
-            file_handle.seek(hash_place, os.SEEK_SET)
-            if file_handle.tell() != hash_place:
+            f.seek(hash_place, os.SEEK_SET)
+            if f.tell() != hash_place:
                 raise Exception("Hash: Failed to seek to %s" % hash_place)
-            file_hash = hash_block(file_handle, file_hash)
+            file_hash = hash_block(f, file_hash)
 
     returned_hash = "%016x" % file_hash
     return returned_hash, file_size

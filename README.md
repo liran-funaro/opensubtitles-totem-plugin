@@ -20,9 +20,16 @@ supplied with totem.
 Download the content of this repository to `~/.local/share/totem/plugins/opensubtitles-totem-plugin`.
 Or clone the repository to the plugins' folder:
 
-```bash
+```shell
 cd ~/.local/share/totem/plugins
 git clone https://github.com/liran-funaro/opensubtitles-totem-plugin.git
+```
+
+Install requirements:
+
+```shell
+cd ~/.local/share/totem/plugins/opensubtitles-totem-plugin
+pip install -R requirements.txt
 ```
 
 Finally, enable the plugin in the "Preferences->General->Plugins..." menu.

@@ -1,0 +1,4 @@
+opensubtitlescom
+tabulate
+
+appdirs
