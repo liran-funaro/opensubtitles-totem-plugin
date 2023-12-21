@@ -40,6 +40,11 @@ class Subtitles:
             return [self.get(k) for k in item]
         return self.get(item)
 
+    def items(self):
+        d = dict(self.data)
+        d.update(self.helper_data)
+        return self.helper_data.items()
+
     def get(self, item):
         if item in self.helper_data:
             return self.helper_data[item]

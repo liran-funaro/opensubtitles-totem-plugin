@@ -249,7 +249,7 @@ def make_terms_regexp(term_list: list[str]):
 AUDIO_QUALITY_RE = re.compile(rf"[5-7](\.1|CH){BA}", re.IGNORECASE)
 SEARCHES = {
     "year": re.compile(rf"{BB}(19\d{{2}}|20\d{{2}}){BA}", re.IGNORECASE),
-    "season-episode": re.compile(rf"{BB}(S\d{{2}}E\d{{2}}){BA}", re.IGNORECASE),
+    "season-episode": re.compile(rf"{BB}(S(\d{{2}})E(\d{{2}})){BA}", re.IGNORECASE),
 
     "audio-quality": AUDIO_QUALITY_RE,
     "video-quality": make_terms_regexp(QUALITY_OPTIONS),
@@ -264,6 +264,8 @@ SEARCHES = {
         re.IGNORECASE,
     ),
 }
+
+COLUMNS = "title", *SEARCHES.keys(), "group", "search-term"
 
 
 def parse_filename(movie_file_path: str) -> dict[str, str | list[str]]:
@@ -281,13 +283,17 @@ def parse_filename(movie_file_path: str) -> dict[str, str | list[str]]:
             else:
                 container_start = min(m.start(0), container_start)
 
+            if k == "season-episode":
+                properties.setdefault("season", []).append(m.group(2))
+                properties.setdefault("episode", []).append(m.group(3))
+
     # Anything that remains before the video container is the group.
     properties["group"] = [SEP.sub(" ", file_name[e:container_start]).strip()]
 
     properties = {k: list(set(v)) for k, v in properties.items()}
 
     # The beginning of the filename, before any property, is the title.
-    properties["title"] = SEP.sub(" ", file_name[:s]).strip()
+    properties["title"] = SEP.sub(" ", file_name[:s]).strip().title()
 
     # The search term is the title + season-episode + year.
     search_term = properties["title"]
