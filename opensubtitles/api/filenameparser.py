@@ -249,7 +249,7 @@ def make_terms_regexp(term_list: list[str]):
 AUDIO_QUALITY_RE = re.compile(rf"[5-7](\.1|CH){BA}", re.IGNORECASE)
 SEARCHES = {
     "year": re.compile(rf"{BB}(19\d{{2}}|20\d{{2}}){BA}", re.IGNORECASE),
-    "season-episode": re.compile(rf"{BB}(S(\d{{2}})E(\d{{2}})){BA}", re.IGNORECASE),
+    "season-episode": re.compile(rf"{BB}(S(\d{{2}})(?:E(\d{{2}}))?){BA}", re.IGNORECASE),
 
     "audio-quality": AUDIO_QUALITY_RE,
     "video-quality": make_terms_regexp(QUALITY_OPTIONS),
