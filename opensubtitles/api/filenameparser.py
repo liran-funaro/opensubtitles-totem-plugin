@@ -266,6 +266,7 @@ SEARCHES = {
 }
 
 COLUMNS = "title", *SEARCHES.keys(), "group", "search-term"
+ID_COLUMNS = "title", "year", "season-episode"
 
 
 def parse_filename(movie_file_path: str) -> dict[str, str | list[str]]:
@@ -303,3 +304,25 @@ def parse_filename(movie_file_path: str) -> dict[str, str | list[str]]:
     properties["search-term"] = search_term
 
     return properties
+
+
+def _get_unified_key(p, key):
+    v = p.get(key, None)
+    if isinstance(v, (list, tuple)):
+        v = ", ".join(sorted(str(vv).lower() for vv in v))
+    if isinstance(v, str):
+        v = v.lower()
+    return v
+
+
+def item_key(p):
+    return tuple(_get_unified_key(p, col) for col in ID_COLUMNS)
+
+
+def is_match(term_key, result):
+    name = result.get("name", None)
+    if name is None:
+        return False
+
+    p = parse_filename(name)
+    return term_key == item_key(p)
