@@ -277,7 +277,8 @@ def parse_filename(movie_file_path: str) -> dict[str, str | list[str]]:
     container_start = len(file_name)
     for k, regex in SEARCHES.items():
         for m in regex.finditer(file_name):
-            properties.setdefault(k, []).append(m.group(0))
+            value = m.group(0)
+
             s = min(m.start(0), s)
             if k != "video-container":
                 e = max(m.end(0), e)
@@ -285,8 +286,15 @@ def parse_filename(movie_file_path: str) -> dict[str, str | list[str]]:
                 container_start = min(m.start(0), container_start)
 
             if k == "season-episode":
-                properties.setdefault("season", []).append(m.group(2))
-                properties.setdefault("episode", []).append(m.group(3))
+                value = value.upper()
+                season = m.group(2)
+                episode = m.group(3)
+                if season:
+                    properties.setdefault("season", []).append(season)
+                if episode:
+                    properties.setdefault("episode", []).append(episode)
+
+            properties.setdefault(k, []).append(value)
 
     # Anything that remains before the video container is the group.
     properties["group"] = [SEP.sub(" ", file_name[e:container_start]).strip()]
