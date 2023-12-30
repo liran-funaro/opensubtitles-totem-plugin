@@ -256,13 +256,13 @@ SEARCHES = {
 
     "video-container": re.compile(rf"\.{make_or_terms_regexp(VIDEO_CONTAINERS)}$"),
     "release-format": make_terms_regexp(RELEASE_FORMATS),
-    "tv-term": make_terms_regexp(TV_TERMS),
     "video-label": make_terms_regexp(VIDEO_LABELS),
     # Audio label is often coupled with the audio quality without a separator.
     "audio-label": re.compile(
         f"{BB}{make_or_terms_regexp(AUDIO_LABELS)}({OPT_SEP.pattern}{AUDIO_QUALITY_RE.pattern}|{BA})",
         re.IGNORECASE,
     ),
+    "tv-term": make_terms_regexp(TV_TERMS),
 }
 
 COLUMNS = "title", *SEARCHES.keys(), "group", "search-term"
@@ -276,7 +276,11 @@ def parse_filename(movie_file_path: str) -> dict[str, str | list[str]]:
     s, e = len(file_name), 0
     container_start = len(file_name)
     for k, regex in SEARCHES.items():
-        for m in regex.finditer(file_name):
+        # The TV term might collide with the actual title.
+        f_name = file_name
+        if k == "tv-term":
+            f_name = (" " * len(f_name[:s])) + f_name[s:]
+        for m in regex.finditer(f_name):
             value = m.group(0)
 
             s = min(m.start(0), s)
