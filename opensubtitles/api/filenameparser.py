@@ -329,12 +329,3 @@ def _get_unified_key(p, key):
 
 def item_key(p):
     return tuple(_get_unified_key(p, col) for col in ID_COLUMNS)
-
-
-def is_match(term_key, result):
-    name = result.get("name", None)
-    if name is None:
-        return False
-
-    p = parse_filename(name)
-    return term_key == item_key(p)
