@@ -12,7 +12,7 @@ from opensubtitles.api.lang import iter_normalize_languages, Languages, LANGUAGE
 if TYPE_CHECKING:
     from opensubtitles.api import OpenSubtitlesApi
 
-SUPPORTED_SUBTITLES_EXT = {"asc", "txt", "sub", "srt", "smi", "ssa", "ass"}
+SUPPORTED_SUBTITLES_EXT = {"asc", "sub", "srt", "smi", "ssa", "ass"}
 
 
 class Subtitles:
@@ -24,7 +24,8 @@ class Subtitles:
         self.data = data
         self.properties = parse_filename(data['SubFileName'])
         self.helper_data = {
-            "id": data['IDSubtitleFile'],
+            "id-sub-file": data['IDSubtitleFile'],
+            "id-sub": data['IDSubtitle'],
             "language": LANGUAGES_3_TO_NATURAL[data['SubLanguageID']],
             "ext": data['SubFormat'],
             "format": data['SubFormat'],
@@ -52,7 +53,7 @@ class Subtitles:
 
     @property
     def id(self):
-        return self.helper_data['id']
+        return self.helper_data['id-sub']
 
     @property
     def ext(self):

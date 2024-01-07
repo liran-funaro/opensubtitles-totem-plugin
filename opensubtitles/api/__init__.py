@@ -24,10 +24,14 @@ import logging
 import os.path
 import threading
 import xmlrpc.client
+import zipfile
 import zlib
 from base64 import b64decode
+from io import BytesIO
 from pathlib import Path
 from typing import List, Optional
+
+import requests
 
 from opensubtitles.api.cache import QueryCache
 from opensubtitles.api.filenameparser import parse_filename
@@ -171,12 +175,12 @@ class OpenSubtitlesApi:
             if content is not None:
                 return content
 
-        result = self.query(lambda t: self._server.DownloadSubtitles(t, [subtitle_id]))
+        res = requests.get(f"http://www.opensubtitles.org/download/sub/{subtitle_id}")
+        if res.status_code != 200:
+            raise Exception(f"Failed fetching subtitles [{subtitle_id}]. Status code: {res.status_code}.")
 
         try:
-            subtitle64 = result['data'][0]['data']
-            subtitle_zip = b64decode(subtitle64)
-            content = zlib.decompress(subtitle_zip, 47)
+            content = read_subtitles_file(res.content)
             self._cache.write_cached_subtitles(str(subtitle_id), content)
             return content
         except Exception as e:
@@ -209,7 +213,7 @@ class OpenSubtitlesApi:
             except Exception as e:
                 self.logger.exception(e)
 
-    def save_subtitles(self, movie_path, subtitles, extension):
+    def save_subtitles(self, movie_path, subtitles: bytes, extension: str):
         if not subtitles or not extension:
             return
 
@@ -255,3 +259,19 @@ class OpenSubtitlesApi:
                     raise Exception(self.ERROR_MESSAGE_FMT % ("Query error", e))
 
         raise Exception(self.ERROR_MESSAGE_FMT % ("Failed query", "invalid results"))
+
+
+def is_subtitles_file(file_name: str):
+    _, ext = os.path.splitext(file_name)
+    ext = ext.strip(".")
+    return ext in SUPPORTED_SUBTITLES_EXT
+
+
+def read_subtitles_file(content: bytes):
+    with zipfile.ZipFile(BytesIO(content)) as f:
+        sub_files = list(filter(is_subtitles_file, f.namelist()))
+        if len(sub_files) == 0:
+            raise Exception(f"Not subtitles file found: {f.namelist()}")
+
+        file_name = sub_files[0]
+        return f.read(file_name)

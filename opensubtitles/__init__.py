@@ -226,7 +226,7 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
 
     def download_subtitles(self, selected_dict: Dict[str, str]):
         subtitle_format = selected_dict['format']
-        content = self.api.download_subtitles(selected_dict['id'], subtitle_format)
+        content = self.api.download_subtitles(selected_dict['id-sub'], subtitle_format)
         return self.save_subtitles(content, subtitle_format)
 
     def handle_search_results(self, results: Optional[api.Query], feeling_lucky=False):
