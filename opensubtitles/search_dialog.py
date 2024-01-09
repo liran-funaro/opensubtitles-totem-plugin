@@ -260,7 +260,7 @@ class SearchDialog(object):
             return
 
         subtitle_iter = model.get_iter(rows[0])
-        columns = ['language', 'name', 'format', 'rating', 'id', 'size']
+        columns = ['language', 'name', 'format', 'rating', 'id-sub', 'size']
         selected_dict = {c: model.get_value(subtitle_iter, i) for i, c in enumerate(columns)}
         self.plugin_object.on_download_request(selected_dict)
 

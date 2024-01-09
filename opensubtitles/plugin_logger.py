@@ -27,15 +27,19 @@ import logging.handlers
 def start_logging(log_to_file=False):
     logger = logging.getLogger("totem")
     logger.setLevel(logging.DEBUG)
+    api_logger = logging.getLogger("opensubtitles-api")
+    api_logger.setLevel(logging.DEBUG)
 
     if log_to_file:
         handler = logging.FileHandler("/tmp/totem-opensubtitles.log", 'w+')
 
         handler.setLevel(logging.DEBUG)
         handler.setFormatter(logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        ))
 
         logger.addHandler(handler)
+        api_logger.addHandler(handler)
     return logger
 
 

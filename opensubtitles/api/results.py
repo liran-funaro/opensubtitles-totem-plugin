@@ -26,6 +26,7 @@ class Subtitles:
         self.helper_data = {
             "id-sub-file": data['IDSubtitleFile'],
             "id-sub": data['IDSubtitle'],
+            "id": data['IDSubtitle'],
             "language": LANGUAGES_3_TO_NATURAL[data['SubLanguageID']],
             "ext": data['SubFormat'],
             "format": data['SubFormat'],
@@ -61,6 +62,13 @@ class Subtitles:
 
     @property
     def score(self) -> float:
+        if self.helper_data['ext'] not in SUPPORTED_SUBTITLES_EXT:
+            return -1
+
+        for k in ("title", "season-episode"):
+            if self.properties.get(k, None) != self.query.properties.get(k, None):
+                return -1
+
         score = float(self.get("rating"))
 
         def get_property(p: dict, key: str) -> set:
@@ -146,9 +154,8 @@ class Query:
 
         lang_order = defaultdict(lambda: float('inf'), **{l: i for i, l in enumerate(self.languages)})
 
-        results = [Subtitles(self.owner, self, r) for r in data if r['SubFormat'] in SUPPORTED_SUBTITLES_EXT]
         self.results: List[Subtitles] = sorted(
-            results,
+            filter(lambda s: s.score >= 0, (Subtitles(self.owner, self, r) for r in data)),
             key=lambda x: (lang_order[x['SubLanguageID']], -x.score)
         )
         return True

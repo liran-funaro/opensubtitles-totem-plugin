@@ -191,7 +191,7 @@ class OpenSubtitles(GObject.Object, Peas.Activatable):
         self.disable()
 
     def __on_menu_set_subtitle(self, _action, params):
-        params = {p: params[i] for i, p in enumerate(['format', 'id'])}
+        params = {p: params[i] for i, p in enumerate(['format', 'id-sub'])}
         self.submit_download_request(params)
 
     #####################################################################
