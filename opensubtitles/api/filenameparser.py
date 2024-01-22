@@ -219,8 +219,7 @@ AUDIO_LABELS = [
     "DDP", "DDP-A",
     "MultiAudio",
 ]
-
-SINGLE_SEP = re.compile(r"[.\-_ ·*:\t\n[\]]", re.IGNORECASE)
+SINGLE_SEP = re.compile(r"[.\-_ ·*:+\t\n[\]]", re.IGNORECASE)
 SEP = re.compile(rf"{SINGLE_SEP.pattern}+", re.IGNORECASE)
 OPT_SEP = re.compile(rf"{SINGLE_SEP.pattern}*", re.IGNORECASE)
 BA = f"(?:$|(?={SINGLE_SEP.pattern}))"
