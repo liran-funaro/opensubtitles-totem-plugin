@@ -74,7 +74,10 @@ class QueryCache:
         return os.path.join(self.subtitles_cache_path, str(sub_id))
 
     def read_cached_query(self, query: Query):
-        query.set_response(self._read_json_file(self.query_cache_file(query.query_hash)))
+        try:
+            query.set_response(self._read_json_file(self.query_cache_file(query.query_hash)))
+        except json.JSONDecodeError:
+            pass
         return query
 
     def write_cached_query(self, query: Query):
