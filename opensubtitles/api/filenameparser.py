@@ -308,9 +308,9 @@ def parse_filename(movie_file_path: str) -> dict[str, str | list[str]]:
     # The beginning of the filename, before any property, is the title.
     properties["title"] = SEP.sub(" ", file_name[:s]).strip().title()
 
-    # The search term is the title + season-episode + year.
+    # The search term is the title + year + season-episode.
     search_term = properties["title"]
-    for k in ['season-episode', 'year']:
+    for k in ['year', 'season-episode']:
         for v in properties.get(k, []):
             search_term += f" {v}"
     properties["search-term"] = search_term
