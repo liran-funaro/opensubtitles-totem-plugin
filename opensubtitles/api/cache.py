@@ -8,7 +8,7 @@ from typing import Optional
 from opensubtitles.api.results import Query
 
 SECONDS_PER_DAY = float(60 * 60 * 24)
-CACHE_LIFETIME_DAYS = 1
+CACHE_LIFETIME_DAYS = 0.25
 SUBS_CACHE_LIFETIME_DAYS = 7
 
 try:
