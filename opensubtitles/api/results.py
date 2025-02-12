@@ -167,7 +167,7 @@ class Query:
 
     def __iter__(self) -> Iterable[Subtitles]:
         if self.results is None:
-            raise ValueError("No result to iterate.")
+            return iter([])
         return iter(self.results)
 
     def __len__(self):
