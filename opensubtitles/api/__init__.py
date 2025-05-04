@@ -185,7 +185,7 @@ class OpenSubtitlesApi:
             return content
         except Exception as e:
             self.logger.error("Failed parsing subtitles: %s", e)
-            raise Exception(u"Parse subtitles error:" % e)
+            raise Exception(u"Parse subtitles error: %s" % e)
 
     @staticmethod
     def subtitle_path(movie_path, ext):
