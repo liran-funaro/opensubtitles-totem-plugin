@@ -249,7 +249,7 @@ def make_terms_regexp(term_list: list[str]):
 AUDIO_QUALITY_RE = re.compile(rf"[5-7](\.1|CH){BA}", re.IGNORECASE)
 SEARCHES = {
     "year": re.compile(rf"{BB}(19\d{{2}}|20\d{{2}}){BA}", re.IGNORECASE),
-    "season-episode": re.compile(rf"{BB}(S(\d{{2}})(?:E(\d{{2}}))?){BA}", re.IGNORECASE),
+    "season-episode": re.compile(rf"{BB}(S(\d{{2}}){OPT_SEP.pattern}(?:E(\d{{2}}))?){BA}", re.IGNORECASE),
 
     "audio-quality": AUDIO_QUALITY_RE,
     "video-quality": make_terms_regexp(QUALITY_OPTIONS),
@@ -290,13 +290,13 @@ def parse_filename(movie_file_path: str) -> dict[str, str | list[str]]:
                 container_start = min(m.start(0), container_start)
 
             if k == "season-episode":
-                value = value.upper()
+                value = OPT_SEP.sub("", value).upper()
                 season = m.group(2)
                 episode = m.group(3)
                 if season:
-                    properties.setdefault("season", []).append(season)
+                    properties.setdefault("season", []).append(season.upper())
                 if episode:
-                    properties.setdefault("episode", []).append(episode)
+                    properties.setdefault("episode", []).append(episode.upper())
 
             properties.setdefault(k, []).append(value)
 
