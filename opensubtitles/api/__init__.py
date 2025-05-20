@@ -55,7 +55,6 @@ class OpenSubtitlesApi:
 
     def __init__(self, user_agent, username='', password='', cache_dir: Optional[str] = None):
         self.logger = logging.getLogger("opensubtitles-api")
-        self.logger.addHandler(logging.StreamHandler())
         self.logger.setLevel(logging.DEBUG)
         self.user_agent = user_agent
         self.username = username
@@ -108,7 +107,6 @@ class OpenSubtitlesApi:
             ), login=False)
 
             token = result.get('token', None)
-            self.logger.debug(result.get('user'))
             if not token:
                 self.log_off()
                 raise Exception(self.ERROR_MESSAGE_FMT % ("can't login", token))
