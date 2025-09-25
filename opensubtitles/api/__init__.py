@@ -25,12 +25,11 @@ import os.path
 import threading
 import xmlrpc.client
 import zipfile
-import zlib
-from base64 import b64decode
 from io import BytesIO
 from pathlib import Path
 from typing import List, Optional
 
+import browser_cookie3
 import requests
 
 from opensubtitles.api.cache import QueryCache
@@ -43,6 +42,26 @@ from opensubtitles.api.results import Query, SUPPORTED_SUBTITLES_EXT
 OPENSUBTITLES_RPC = 'https://api.opensubtitles.org:443/xml-rpc'
 
 OK200 = '200 OK'
+
+opensubtitles_headers = {
+    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'accept-encoding': 'gzip, deflate',
+    'accept-language': 'en-US,en;q=0.9,he;q=0.8',
+    # 'cache-control': 'max-age=0',
+    'dnt': '1',
+    'priority': 'u=0, i',
+    'sec-ch-ua': '"Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Linux"',
+    'sec-fetch-dest': 'document',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-site': 'none',
+    'sec-fetch-user': '?1',
+    'upgrade-insecure-requests': '1',
+    'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
+}
+
+_chrome_cookies = browser_cookie3.chrome()
 
 
 class OpenSubtitlesApi:
@@ -168,17 +187,29 @@ class OpenSubtitlesApi:
         )
 
     def download_subtitles(self, subtitle_id, refresh_cache=False) -> bytes:
+        def downloader():
+            path = f"https://www.opensubtitles.org/en/download/sub/{subtitle_id}"
+            res = requests.get(path, headers=opensubtitles_headers, cookies=_chrome_cookies)
+            if res.status_code != 200:
+                raise Exception(f"URL: '{path}'. Status code: {res.status_code}.")
+            return res.content
+
+        return self.download_subtitles_method(subtitle_id, downloader, refresh_cache=refresh_cache)
+
+    def download_subtitles_method(self, subtitle_id, downloader, refresh_cache=False) -> bytes:
         if not refresh_cache:
             content = self._cache.read_cached_subtitles(str(subtitle_id))
             if content is not None:
                 return content
 
-        res = requests.get(f"http://www.opensubtitles.org/download/sub/{subtitle_id}")
-        if res.status_code != 200:
-            raise Exception(f"Failed fetching subtitles [{subtitle_id}]. Status code: {res.status_code}.")
+        try:
+            downloaded_zip_content = downloader()
+        except Exception as e:
+            self.logger.error("Failed downloading subtitles: %s", e)
+            raise Exception(f"Failed fetching subtitles [{subtitle_id}]: {e}")
 
         try:
-            content = read_subtitles_file(res.content)
+            content = read_subtitles_file(downloaded_zip_content)
             self._cache.write_cached_subtitles(str(subtitle_id), content)
             return content
         except Exception as e:
